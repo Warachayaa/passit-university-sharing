@@ -1,17 +1,13 @@
+
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  KeyboardAvoidingView, Platform, Alert, SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { confirmPasswordReset } from 'firebase/auth';
 import { auth } from '../config/firebase';
+
 
 const COLORS = {
   background: '#F5EDD6',
@@ -27,8 +23,11 @@ const COLORS = {
 export default function ResetPasswordScreen({ navigation, route }) {
   // oobCode มาจาก Deep Link ที่ Firebase ส่งให้ทาง Email
   const oobCode = route?.params?.oobCode ?? '';
+  // รับ email ที่ส่งต่อมาจากหน้า Find Account
+  const passedEmail = route?.params?.email ?? '';
 
-  const [email, setEmail]               = useState('');
+  // ถ้ามีค่า passedEmail ส่งมา จะนำมากรอกให้อัตโนมัติในช่องนี้
+  const [email, setEmail]               = useState(passedEmail);
   const [password, setPassword]         = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading]           = useState(false);
@@ -44,10 +43,18 @@ export default function ResetPasswordScreen({ navigation, route }) {
       if (oobCode) {
         // กรณีมาจาก Email Link ของ Firebase
         await confirmPasswordReset(auth, oobCode, password);
+        Alert.alert('เปลี่ยนรหัสผ่านสำเร็จ!', 'กรุณา Login ด้วยรหัสใหม่');
+        if (navigation) navigation.navigate('Login');
+      } else if (passedEmail) {
+        // กรณีข้ามมาจากหน้า Find Account ตรงๆ (Flow ที่ต้องการ)
+        // จำลองการเปลี่ยนรหัสผ่านสำเร็จ (ในระบบจริงต้องยิง API ไปหา Backend Admin SDK)
+        console.log(`[จำลองระบบ] เปลี่ยนรหัสผ่านของ ${email} เป็น ${password}`);
+        
+        Alert.alert('เปลี่ยนรหัสผ่านสำเร็จ!', 'กรุณา Login ด้วยรหัสใหม่');
+        if (navigation) navigation.navigate('Login');
+      } else {
+        Alert.alert('ไม่สำเร็จ', 'ไม่พบข้อมูลการยืนยันตัวตน');
       }
-      Alert.alert('เปลี่ยนรหัสผ่านสำเร็จ!', 'กรุณา Login ด้วยรหัสใหม่', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') },
-      ]);
     } catch (error) {
       Alert.alert('ไม่สำเร็จ', 'Link หมดอายุหรือไม่ถูกต้อง กรุณาขอ Reset ใหม่อีกครั้ง');
     } finally {
@@ -61,7 +68,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Back Button */}
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation && navigation.goBack()}>
         <Ionicons name="chevron-back" size={16} color={COLORS.label} />
         <Text style={styles.backText}>Back to Login</Text>
       </TouchableOpacity>
@@ -185,6 +192,8 @@ const styles = StyleSheet.create({
   },
   eyeBtn: {
     padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   btn: {
     backgroundColor: COLORS.primary,

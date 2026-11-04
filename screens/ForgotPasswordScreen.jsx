@@ -24,6 +24,7 @@ const COLORS = {
   label:      '#6B4F3A',
   overlay:    'rgba(74, 55, 40, 0.5)',
   modalBg:    '#FFFFFF',
+  warning:    '#D9534F',
 };
 
 export default function ForgotPasswordScreen({ navigation }) {
@@ -36,18 +37,34 @@ export default function ForgotPasswordScreen({ navigation }) {
       Alert.alert('กรุณากรอกอีเมล');
       return;
     }
+    
+    // 🚧 ปิดคอมเมนต์ตรงนี้ชั่วคราว หากต้องการทดสอบด้วย @gmail.com ส่วนตัว
     if (!email.endsWith('@g.sut.ac.th')) {
       Alert.alert('กรุณาใช้อีเมลมหาวิทยาลัย (@g.sut.ac.th)');
       return;
     }
 
     setLoading(true);
+    console.log("กำลังส่งคำขอ Reset Password ไปที่:", email);
+
     try {
+      // ลองส่งอีเมลรีเซ็ตรหัสผ่าน
       await sendPasswordResetEmail(auth, email);
-      setModalVisible(true);   // แสดง "Email Sent" popup
+      
+      console.log("Firebase แจ้งว่าทำงานคำสั่งสำเร็จ (แต่อีเมลอาจไม่ไปถ้าไม่มี User ในระบบ)");
+      setModalVisible(true);   // แสดง popup เมื่อส่งสำเร็จ
     } catch (error) {
+      console.error('Firebase Auth Error:', error.code, error.message);
+      
       let msg = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
-      if (error.code === 'auth/user-not-found') msg = 'ไม่พบอีเมลนี้ในระบบ';
+      if (error.code === 'auth/user-not-found') {
+        msg = 'ไม่พบอีเมลนี้ในระบบ กรุณาสมัครสมาชิกก่อน';
+      } else if (error.code === 'auth/invalid-email') {
+        msg = 'รูปแบบอีเมลไม่ถูกต้อง';
+      } else if (error.code === 'auth/too-many-requests') {
+        msg = 'คุณส่งคำขอมากเกินไป กรุณารอสักครู่';
+      }
+      
       Alert.alert('ไม่สำเร็จ', msg);
     } finally {
       setLoading(false);
@@ -59,20 +76,14 @@ export default function ForgotPasswordScreen({ navigation }) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {/* Back Button */}
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
         <Ionicons name="chevron-back" size={16} color={COLORS.label} />
         <Text style={styles.backText}>Back to Login</Text>
       </TouchableOpacity>
 
-      {/* Header */}
       <Text style={styles.title}>Find your Account</Text>
       <Text style={styles.subtitle}>Enter your University email address.</Text>
-      <TouchableOpacity onPress={() => navigation.navigate('ResetPassword')}>
-        <Text style={styles.link}>Can reset your password?</Text>
-      </TouchableOpacity>
 
-      {/* Email Input */}
       <Text style={styles.label}>University Email</Text>
       <View style={styles.inputRow}>
         <Ionicons name="mail-outline" size={16} color={COLORS.placeholder} style={styles.inputIcon} />
@@ -87,7 +98,6 @@ export default function ForgotPasswordScreen({ navigation }) {
         />
       </View>
 
-      {/* Send Button */}
       <TouchableOpacity
         style={[styles.btn, loading && { opacity: 0.7 }]}
         onPress={handleSend}
@@ -96,7 +106,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         <Text style={styles.btnText}>{loading ? 'Sending...' : 'Send'}</Text>
       </TouchableOpacity>
 
-      {/* ============ Email Sent Modal ============ */}
+      {/* ============ Modal ============ */}
       <Modal
         visible={modalVisible}
         transparent
@@ -105,24 +115,29 @@ export default function ForgotPasswordScreen({ navigation }) {
       >
         <View style={styles.overlay}>
           <View style={styles.modal}>
-            {/* Close Button */}
             <TouchableOpacity
               style={styles.closeBtn}
               onPress={() => {
                 setModalVisible(false);
-                navigation.navigate('Login');
+                navigation.navigate('Login'); 
               }}
             >
               <Ionicons name="close" size={18} color={COLORS.text} />
             </TouchableOpacity>
 
-            {/* Modal Content */}
             <Text style={styles.modalTitle}>Email Sent</Text>
             <Text style={styles.modalBody}>
               We sent an email to{' '}
               <Text style={styles.modalEmail}>{email}</Text>
               {' '}with a link to get back into your account.
             </Text>
+            
+            <View style={styles.spamWarning}>
+              <Ionicons name="alert-circle-outline" size={14} color={COLORS.warning} />
+              <Text style={styles.spamWarningText}>
+                กรุณากดลิงก์ในอีเมลเพื่อตั้งรหัสผ่านใหม่ (หากไม่พบให้เช็คในกล่องจดหมายขยะ/Spam)
+              </Text>
+            </View>
           </View>
         </View>
       </Modal>
@@ -157,13 +172,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     color: COLORS.label,
-    marginBottom: 2,
-  },
-  link: {
-    fontSize: 13,
-    color: COLORS.primary,
-    textDecorationLine: 'underline',
-    marginBottom: 28,
+    marginBottom: 24, 
   },
   label: {
     fontSize: 13,
@@ -202,8 +211,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-
-  /* Modal */
   overlay: {
     flex: 1,
     backgroundColor: COLORS.overlay,
@@ -243,4 +250,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text,
   },
+  spamWarning: {
+    flexDirection: 'row',
+    backgroundColor: '#FDECEA',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  spamWarningText: {
+    fontSize: 11,
+    color: COLORS.warning,
+    marginLeft: 6,
+    flex: 1,
+  }
 });
